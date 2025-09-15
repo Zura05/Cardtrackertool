@@ -1,501 +1,285 @@
-<! doctype html>
-<html lang="en">
+<!doctype html>
+<html>
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Card Tracker — editable + gold + copy/translate</title>
-<style>
-  :root{
-    --bg:#0f1220; --panel:#151936; --panel2:#1a1f36; --line:#2b2f45;
-    --text:#eef1ff; --btn:#1f2340; --btnLine:#2e355a; --accent:#3d5afe; --accent2:#4b6bff;
-    --red:#a62828; --green:#1f6a36; --purple:#5e3f92; --goldLine:#e0b95d; --goldBg:#3b2a00;
-  }
-  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;margin:0;background:var(--bg);color:var(--text)}
-  header{position:sticky;top:0;background:#171a2b;border-bottom:1px solid var(--line);padding:12px 14px;z-index:10}
-  h1{margin:0;font-size:18px}
-  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-  button,select{background:var(--btn);border:1px solid var(--btnLine);color:var(--text);border-radius:10px;padding:10px 12px;font-size:14px}
-  button.primary{background:var(--accent);border-color:var(--accent2)}
-  .container{padding:14px}
-  .deck-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
-  .deck{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
-  .deck header{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--panel2);border-bottom:1px solid var(--line)}
-  .title[contenteditable]{outline:0;border-bottom:1px dashed transparent}
-  .title[contenteditable]:focus{border-color:var(--accent)}
-  .cards{padding:10px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-  .card{background:#10142c;border:1px solid var(--line);border-radius:12px;padding:8px;min-height:74px;display:flex;flex-direction:column;justify-content:space-between}
-  .card.gold{background:var(--goldBg);border-color:var(--goldLine)}
-  .card.gold .name{color:#ffe6a6}
-  .name{font-size:12px}
-  .name[contenteditable]{outline:0;border-bottom:1px dashed transparent}
-  .name[contenteditable]:focus{border-color:var(--accent)}
-  .badge{font-size:10px;padding:3px 6px;border-radius:999px;border:1px solid var(--line);display:inline-block;margin-top:6px}
-  .none{background:#1c2038}
-  .needed{background:var(--red)}
-  .owned{background:var(--green)}
-  .duplicate{background:var(--purple)}
-  h3{margin:18px 4px 8px}
-  .chunk{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;margin:10px 0}
-  .chunk .row{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
-  textarea{width:100%;min-height:130px;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:8px}
-  small{opacity:.8}
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Card Tracker</title>
+  <style>
+    *{box-sizing:border-box}
+    body{
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+      margin:0;background:#fff;color:#111
+    }
+    header{position:sticky;top:0;z-index:10;background:#fff;border-bottom:1px solid #e5e5e5;padding:12px}
+    .toolbar{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:center}
+    button,select{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid #cfcfcf;background:#fff;cursor:pointer}
+    button.primary{background:#2563eb;border-color:#2563eb;color:#fff}
+    button:active{transform:scale(.98)}
+    main{max-width:1200px;margin:0 auto;padding:14px}
+    .output{white-space:pre-wrap;background:#fafafa;border:1px solid #e7e7e7;border-radius:10px;padding:10px;margin:12px 0}
+    .decks{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+    .deck{background:#fff;border:1px solid #e7e7e7;border-radius:12px;padding:10px}
+    .deck-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+    .deck-name{font-weight:700;font-size:16px;padding:4px 6px;border-radius:6px}
+    .deck-name[contenteditable="true"]{outline:2px dashed #cfcfcf}
+    .counts{font-size:12px;color:#666}
+    .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+    .card{border:1px solid #ddd;border-radius:10px;background:#f6f6f6;min-height:48px;padding:6px;display:flex;flex-direction:column;gap:6px}
+    .name{font-size:13px;padding:4px;border-radius:6px;background:#fff}
+    .name[contenteditable="true"]{outline:1px dashed #c9a600;background:#fffceb}
+    .row{display:flex;gap:6px;align-items:center;justify-content:flex-end}
+    .badge{font-size:11px;padding:2px 6px;border-radius:999px;border:1px solid #ccc;background:#fff}
+    .btn{font-size:11px;padding:4px 6px;border-radius:6px;border:1px solid #cfcfcf;background:#fff}
+    .needed{background:#fff1f1;border-color:#f4c4c4}
+    .duplicate{background:#eef5ff;border-color:#cfe2ff}
+    .owned{background:#eefbea;border-color:#cdeac0}
+    .gold{background:#fee68a !important;border-color:#e3c24c !important}
+    dialog{border:none;border-radius:12px;padding:0;width:min(700px,96vw)}
+    dialog::backdrop{background:rgba(0,0,0,.35)}
+    .dialog{padding:16px}
+    .grid3{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin:10px 0}
+    .grid3 input, textarea{padding:10px;border-radius:8px;border:1px solid #ccc;font:inherit}
+    .muted{color:#666;font-size:12px}
+  </style>
 </head>
 <body>
-<header>
-  <h1>Card Tracker</h1>
-  <div class="toolbar">
-    <select id="listKind">
-      <option value="duplicate">🔵 Duplicates</option>
-      <option value="needed">🔴 Needed</option>
-      <option value="owned">🟢 Owned</option>
-    </select>
-    <button id="makeList" class="primary">Make List</button>
-    <button id="resetBtn">Reset</button>
-  </div>
-</header>
+  <header>
+    <div class="toolbar">
+      <select id="listKind">
+        <option value="duplicate">Duplicates</option>
+        <option value="needed">Needed</option>
+      </select>
+      <button id="makeList" class="primary">Make List</button>
+      <button id="copyList">Copy</button>
+      <select id="filterSel" title="Filter">
+        <option value="all">Show: All</option>
+        <option value="needed">Needed</option>
+        <option value="duplicate">Duplicate</option>
+        <option value="owned">Owned</option>
+        <option value="gold">Gold (Unsharable)</option>
+      </select>
+      <button id="openTranslations">Translations</button>
+      <button id="backupBtn">Backup JSON</button>
+      <button id="restoreBtn">Restore JSON</button>
+      <button id="resetBtn">Reset</button>
+    </div>
+  </header>
 
-<div class="container">
-  <div id="decks" class="deck-grid"></div>
+  <main>
+    <div id="output" class="output" aria-live="polite"></div>
+    <div id="decks" class="decks"></div>
+  </main>
 
-  <h3>Generated List</h3>
-  <small>Lists are split into ≤500 characters. Copy or translate each chunk.</small>
-  <div id="chunks"></div>
-</div>
+  <!-- Translations Modal -->
+  <dialog id="transDlg">
+    <form method="dialog" class="dialog">
+      <h3>Translation Map (Foreign → English)</h3>
+      <p class="muted">Exports will use English if a mapping exists. Example: <code>Playa → Beach</code>.</p>
+      <div id="rows" class="grid3"></div>
+      <div class="grid3">
+        <input id="newForeign" placeholder="Foreign name" />
+        <input id="newEnglish" placeholder="English name" />
+        <button id="addPair" type="button">Add</button>
+      </div>
+      <menu>
+        <button id="clearPairs" type="button">Clear All</button>
+        <button value="cancel">Close</button>
+      </menu>
+    </form>
+  </dialog>
 
-<script>
-/* -------------------- base data -------------------- */
-const PRELOAD = [
-  ["BEACH",["beachball","pier","beverage","life ring","beach bar","conch shell","parasol","sand castle","flamingo"]],
-  ["VOYAGE",["cable car","camera","passport","guidebook","ticket","scooter","van","suitcase","train"]],
-  ["DIVING",["reef","turtle","seashell","jellyfish","fins","seahorse","crab","divingsuit","submarine"]],
-  ["BARBECUE",["sandwich","spatula","barbecue","boomerang","lemonade","tomato","basket","bench","hammock"]],
-  ["RAFTING",["rope","dam","boat","life jacket","water lilly","oar","water mill","bridge","raft"]],
-  ["RESORT",["dive board","handbell","cupboard","trolley","fruits","luggage","menu","hot tub","waterslide"]],
-  ["CHILL",["fan","mini fridge","pool","bathtub","ice cream","thermos","smoothie","ice","cool off"]],
-  ["PATIO",["bowl","swing","small table","jug","dog house","hot dog","patio chair","lights","grill time"]],
-  ["HOBBIES",["riding","fishing","sewing","baking","bowling","movies","painting","skateboard","chase fun"]],
-  ["PLAYGROUND",["frisbee","seasaw","topiary","slide","lamp","snack bar","bicycle","tree hut","open path"]],
-  ["HARBOR",["propeller","sailor hat","fish net","crane","dock","ship wheel","lighthouse","seagull","gotcha"]],
-  ["PIRATE",["sea mine","eye patch","buoy","old map","bottle","monocular","ensign","shipwreck","find it"]],
-  ["EXTREME",["jet ski","zipline","parachute","unicycle","coaster ride","batons","off road","flying cap","lift up"]],
-  ["SUNSHINE",["sunglasses","beach bag","sunbed","soda can","novel","sunscreen","floaty","sun hat","chill out"]],
-  ["PARTY",["party hat","bar stool","canape","punch","dress","stage light","music","disco ball","party on"]],
-];
+  <!-- Restore Modal -->
+  <dialog id="restoreDlg">
+    <form method="dialog" class="dialog">
+      <h3>Restore from JSON</h3>
+      <textarea id="restoreTxt" rows="10" placeholder='Paste backup JSON here'></textarea>
+      <menu>
+        <button id="doRestore" type="button">Restore</button>
+        <button value="cancel">Cancel</button>
+      </menu>
+    </form>
+  </dialog>
 
-/* gold rules */
-function isGold(deckIdx1, cardIdx1){
-  if (deckIdx1 <= 6) return false;
-  if (deckIdx1 <= 9)  return cardIdx1 === 9;
-  if (deckIdx1 <= 12) return cardIdx1 === 8 || cardIdx1 === 9;
-  return cardIdx1 >= 7; // 13–15 -> 7,8,9
-}
+  <script>
+    /* ===== storage keys ===== */
+    const STORAGE_KEY = 'cardTrackerData.v1';
+    const TRANSLATE_KEY = 'cardTrackerTranslations.v1';
 
-/* storage */
-const STORAGE_KEY = "cardTracker_edit_gold_v2";
-function load(){
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (raw) return JSON.parse(raw);
-  const data = PRELOAD.map(([deck,cards], dIdx)=>({
-    deck,
-    cards: cards.map((name,cIdx)=>{
-      const gold = isGold(dIdx+1,cIdx+1);
-      return { name, status: gold ? "owned" : "none", gold };
-    })
-  }));
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  return data;
-}
-let DATA = load();
-function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA)); }
+    /* ===== initial data: 15 decks x 9 cards ===== */
+    function makeDefaultDecks() {
+      const names = ["BEACH","VOYAGE","DIVING","BARBECUE","RAFTING","RESORT","CHILL","PATIO","EXTREME","SUNSHINE","PARTY","SPORT","MUSIC","ANIMALS","TRAVEL"];
+      return names.map((n,di)=>({
+        name:n,
+        cards:Array.from({length:9},(_,i)=>({name:`Card ${i+1}`,status:"owned"}))
+      }));
+    }
 
-/* helpers */
-const ORDER = ["none","needed","owned","duplicate"];
-function nextStatus(s){ return ORDER[(ORDER.indexOf(s)+1)%ORDER.length]; }
-function count(deck){
-  return deck.cards.reduce((a,c)=>{
-    if (c.gold) { a.owned++; return a; }
-    a[c.status] = (a[c.status]||0)+1;
-    return a;
-  }, {needed:0,owned:0,duplicate:0});
-}
+    /* ===== state ===== */
+    let decks = loadJSON(STORAGE_KEY) ?? makeDefaultDecks();
+    let translations = loadJSON(TRANSLATE_KEY) ?? {};
+    let filter = 'all';
 
-/* render decks */
-function render(){
-  const wrap = document.getElementById("decks");
-  wrap.innerHTML = "";
-  DATA.forEach((d,di)=>{
-    const cardCount = count(d);
-    const deck = document.createElement("div");
-    deck.className = "deck";
+    /* ===== utils ===== */
+    function loadJSON(k){ try{const r=localStorage.getItem(k); return r?JSON.parse(r):null;}catch{return null} }
+    function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(decks)); }
+    function saveTrans(){ localStorage.setItem(TRANSLATE_KEY, JSON.stringify(translations)); }
+    function t(name){ const k=name.trim(); return translations[k]?.trim() || name; }
+    function statusClass(s){ return s==='gold'?'gold':s; }
 
-    const head = document.createElement("header");
-    const title = document.createElement("div");
-    title.className = "title";
-    title.textContent = d.deck;
-    title.contentEditable = "true";
-    title.addEventListener("blur", ()=>{
-      d.deck = (title.textContent||"").trim() || d.deck;
-      save(); render();
-    });
-    head.appendChild(title);
+    /* ===== render ===== */
+    const decksEl = document.getElementById('decks');
+    const outEl = document.getElementById('output');
 
-    const meta = document.createElement("div");
-    meta.style.opacity=".8"; meta.style.fontSize="12px";
-    meta.textContent = `N:${cardCount.needed} O:${cardCount.owned} D:${cardCount.duplicate}`;
-    head.appendChild(meta);
-    deck.appendChild(head);
-
-    const grid = document.createElement("div");
-    grid.className = "cards";
-
-    d.cards.forEach((c,ci)=>{
-      const card = document.createElement("div");
-      card.className = "card" + (c.gold ? " gold" : "");
-      const nm = document.createElement("div");
-      nm.className = "name";
-      nm.textContent = c.name + (c.gold ? " (gold)" : "");
-      nm.contentEditable = "true";  // you can rename even gold slots
-      nm.addEventListener("blur", ()=>{
-        const newName = (nm.textContent||"").replace(/\s+\(gold\)\s*$/,"").trim();
-        if (newName) c.name = newName;
-        // keep "(gold)" suffix for display only:
-        nm.textContent = c.name + (c.gold ? " (gold)" : "");
-        save(); render();
+    function countDeck(deck){
+      let N=0,O=0,D=0;
+      deck.cards.forEach(c=>{
+        if(c.status==='needed') N++;
+        else if(c.status==='owned') O++;
+        else if(c.status==='duplicate') D++;
       });
+      return {N,O,D};
+    }
 
-      const badge = document.createElement("div");
-      badge.className = "badge "+c.status;
-      badge.textContent = c.status==="none" ? "—" : c.status.toUpperCase();
+    function render(){
+      decksEl.innerHTML='';
+      decks.forEach((deck, di)=>{
+        const wrap=document.createElement('section'); wrap.className='deck';
 
-      if (!c.gold){
-        card.addEventListener("click", ()=>{
-          c.status = nextStatus(c.status);
-          save(); render();
+        // header
+        const head=document.createElement('div'); head.className='deck-head';
+        const name=document.createElement('div'); name.className='deck-name'; name.contentEditable='true'; name.textContent=deck.name;
+        name.addEventListener('blur',()=>{ decks[di].name=name.textContent.trim()||`Deck ${di+1}`; save(); render(); });
+
+        const {N,O,D}=countDeck(deck);
+        const counts=document.createElement('div'); counts.className='counts'; counts.textContent=`N:${N} O:${O} D:${D}`;
+
+        head.appendChild(name); head.appendChild(counts); wrap.appendChild(head);
+
+        // cards
+        const grid=document.createElement('div'); grid.className='cards';
+
+        deck.cards.forEach((card, ci)=>{
+          if(filter!=='all' && filter!==card.status) return;
+
+          const cardEl=document.createElement('div'); cardEl.className=`card ${statusClass(card.status)}`;
+
+          const nm=document.createElement('div'); nm.className='name'; nm.contentEditable='true'; nm.textContent=card.name;
+          nm.addEventListener('blur',()=>{ decks[di].cards[ci].name = nm.textContent.trim()||`Card ${ci+1}`; save(); render(); });
+
+          const row=document.createElement('div'); row.className='row';
+          const badge=document.createElement('span'); badge.className='badge';
+          badge.textContent = card.status==='gold'?'Unsharable':card.status[0].toUpperCase()+card.status.slice(1);
+
+          const goldBtn=document.createElement('button'); goldBtn.className='btn'; goldBtn.textContent = card.status==='gold'?'Ungold':'Gold';
+          goldBtn.title='Toggle Gold';
+          goldBtn.addEventListener('click', (e)=>{ e.stopPropagation();
+            decks[di].cards[ci].status = card.status==='gold' ? 'owned' : 'gold'; save(); render();
+          });
+
+          const cycleBtn=document.createElement('button'); cycleBtn.className='btn'; cycleBtn.textContent='Cycle';
+          cycleBtn.disabled = card.status==='gold';
+          cycleBtn.addEventListener('click',(e)=>{ e.stopPropagation(); cycle(di,ci); });
+
+          row.appendChild(badge); row.appendChild(goldBtn); row.appendChild(cycleBtn);
+
+          // clicking card cycles (except gold)
+          cardEl.addEventListener('click', ()=>{ if(card.status!=='gold') cycle(di,ci); });
+
+          cardEl.appendChild(nm); cardEl.appendChild(row); grid.appendChild(cardEl);
         });
-      } else {
-        c.status = "owned"; // enforce always-owned
-      }
 
-      card.appendChild(nm);
-      card.appendChild(badge);
-      grid.appendChild(card);
-    });
-
-    deck.appendChild(grid);
-    wrap.appendChild(deck);
-  });
-}
-render();
-
-/* make list (gold excluded) + chunking */
-function makeList(kind){
-  const lines=[];
-  DATA.forEach(d=>{
-    const items = d.cards.filter(c=>!c.gold && c.status===kind).map(c=>c.name);
-    if (items.length){
-      const bullet = kind==="duplicate"?"🔵":(kind==="needed"?"🔴":"🟢");
-      lines.push(`${bullet} **${d.deck}** – ${items.join(", ")}`);
+        wrap.appendChild(grid); decksEl.appendChild(wrap);
+      });
     }
-  });
-  return lines.join("\n\n");
-}
-function chunk(text, size=500){
-  const chunks=[];
-  let cur="";
-  text.split(/\n\n/).forEach(block=>{
-    if ((cur+"\n\n"+block).length>size && cur){
-      chunks.push(cur.trim());
-      cur=block;
-    } else {
-      cur = cur ? cur+"\n\n"+block : block;
+
+    function cycle(di,ci){
+      const order=['needed','duplicate','owned'];
+      const c=decks[di].cards[ci];
+      if(c.status==='gold') return;
+      const i=order.indexOf(c.status); decks[di].cards[ci].status = order[(i+1)%order.length];
+      save(); render();
     }
-  });
-  if (cur.trim()) chunks.push(cur.trim());
-  if (!chunks.length) chunks.push("No items.");
-  return chunks;
-}
 
-/* translation (simple, free endpoint – ok for short text) */
-async function translate(text, target){
-  // MyMemory free API (no key). For very long texts it may truncate.
-  const url = "https://api.mymemory.translated.net/get?q="+encodeURIComponent(text)+"&langpair=en|"+encodeURIComponent(target);
-  const r = await fetch(url);
-  const j = await r.json();
-  return (j && j.responseData && j.responseData.translatedText) ? j.responseData.translatedText : text;
-}
+    /* ===== export lists ===== */
+    function makeList(kind){
+      const lines=[];
+      decks.forEach(d=>{
+        const items=d.cards.filter(c=>c.status===kind && c.status!=='gold').map(c=>t(c.name));
+        if(items.length) lines.push(`**${d.name}** — ${items.join(', ')}`);
+      });
+      const text = lines.join('\n\n');
+      outEl.textContent = text || `(No ${kind}s found)`;
+      return text;
+    }
 
-/* UI for chunks */
-function showChunks(listText){
-  const holder = document.getElementById("chunks");
-  holder.innerHTML = "";
-  const pieces = chunk(listText, 500);
-  pieces.forEach((txt,idx)=>{
-    const div = document.createElement("div");
-    div.className = "chunk";
-    const ta = document.createElement("textarea");
-    ta.value = txt;
+    async function copyOut(){
+      const txt = outEl.textContent || '';
+      if(!txt) return;
+      try{ await navigator.clipboard.writeText(txt); outEl.textContent += '\n\n(Copied)'; }
+      catch{ prompt('Copy this text:', txt); }
+    }
 
-    const row = document.createElement("div"); row.className="row";
-
-    const copyBtn = document.createElement("button");
-    copyBtn.textContent = "Copy chunk "+(idx+1);
-    copyBtn.addEventListener("click", async ()=>{
-      try{ await navigator.clipboard.writeText(ta.value); copyBtn.textContent="Copied!"; setTimeout(()=>copyBtn.textContent="Copy",1200);}catch{ alert("Copy failed."); }
+    /* ===== backup / restore ===== */
+    document.getElementById('backupBtn').addEventListener('click', ()=>{
+      outEl.textContent = JSON.stringify({version:1,decks,translations}, null, 2);
     });
 
-    const sel = document.createElement("select");
-    sel.innerHTML = `
-      <option value="es">Spanish</option>
-      <option value="pt">Portuguese</option>
-      <option value="fr">French</option>
-      <option value="de">German</option>
-      <option value="it">Italian</option>
-      <option value="hi">Hindi</option>
-      <option value="ru">Russian</option>
-      <option value="tr">Turkish</option>
-      <option value="zh-CN">Chinese (Simplified)</option>
-      <option value="ja">Japanese</option>
-      <option value="ko">Korean</option>
-    `;
-
-    const trBtn = document.createElement("button");
-    trBtn.textContent = "Translate";
-    trBtn.addEventListener("click", async ()=>{
-      trBtn.disabled = true; trBtn.textContent = "Translating…";
-      try{ ta.value = await translate(ta.value, sel.value); }
-      catch{ alert("Translate failed (network)."); }
-      finally{ trBtn.disabled=false; trBtn.textContent="Translate"; }
+    document.getElementById('restoreBtn').addEventListener('click', ()=>{
+      document.getElementById('restoreTxt').value='';
+      document.getElementById('restoreDlg').showModal();
     });
 
-    row.appendChild(copyBtn);
-    row.appendChild(sel);
-    row.appendChild(trBtn);
+    document.getElementById('doRestore').addEventListener('click', ()=>{
+      const raw = document.getElementById('restoreTxt').value.trim(); if(!raw) return;
+      try{
+        const obj=JSON.parse(raw);
+        decks = Array.isArray(obj.decks)? obj.decks : makeDefaultDecks();
+        translations = obj.translations || {};
+        save(); saveTrans(); document.getElementById('restoreDlg').close(); render();
+        outEl.textContent='Restored.';
+      }catch(e){ alert('Restore failed: '+e.message); }
+    });
 
-    div.appendChild(ta);
-    div.appendChild(row);
-    holder.appendChild(div);
-  });
-}
+    /* ===== translations modal ===== */
+    function openTrans(){
+      const rows = document.getElementById('rows'); rows.innerHTML='';
+      Object.entries(translations).forEach(([f,e])=>addRow(rows,f,e));
+      document.getElementById('transDlg').showModal();
+    }
+    function addRow(container, foreign, english){
+      const f=document.createElement('input'); f.value=foreign; const e=document.createElement('input'); e.value=english;
+      const del=document.createElement('button'); del.textContent='✕'; del.className='btn';
+      const row=document.createElement('div'); row.style.display='contents';
+      del.addEventListener('click', ()=>{ delete translations[foreign]; saveTrans(); container.removeChild(row); });
+      f.addEventListener('blur', ()=>{ if(foreign!==f.value){ delete translations[foreign]; foreign=f.value; } if(foreign) translations[foreign]=e.value||''; saveTrans(); });
+      e.addEventListener('blur', ()=>{ if(foreign) translations[foreign]=e.value||''; saveTrans(); });
+      row.appendChild(f); row.appendChild(e); row.appendChild(del); container.appendChild(row);
+    }
 
-/* controls */
-document.getElementById("makeList").addEventListener("click", ()=>{
-  const kind = document.getElementById("listKind").value;
-  const text = makeList(kind);
-  showChunks(text);
-});
-document.getElementById("resetBtn").addEventListener("click", ()=>{
-  if(!confirm("Reset all statuses and names?")) return;
-  localStorage.removeItem(STORAGE_KEY);
-  DATA = load(); render();
-  document.getElementById("chunks").innerHTML="";
-});
-</script>
+    document.getElementById('addPair').addEventListener('click', ()=>{
+      const f=document.getElementById('newForeign'), e=document.getElementById('newEnglish');
+      const fv=f.value.trim(), ev=e.value.trim(); if(!fv) return;
+      translations[fv]=ev||''; saveTrans();
+      addRow(document.getElementById('rows'), fv, ev); f.value=''; e.value='';
+    });
+
+    document.getElementById('clearPairs').addEventListener('click', ()=>{
+      if(confirm('Clear ALL translations?')){ translations={}; saveTrans(); document.getElementById('rows').innerHTML=''; }
+    });
+
+    /* ===== filter, list, copy, reset ===== */
+    document.getElementById('filterSel').addEventListener('change', e=>{ filter=e.target.value; render(); });
+    document.getElementById('makeList').addEventListener('click', ()=>{
+      const kind=document.getElementById('listKind').value; makeList(kind);
+    });
+    document.getElementById('copyList').addEventListener('click', copyOut);
+    document.getElementById('openTranslations').addEventListener('click', openTrans);
+    document.getElementById('resetBtn').addEventListener('click', ()=>{
+      if(confirm('Reset all decks and translations?')){ decks=makeDefaultDecks(); translations={}; save(); saveTrans(); render(); outEl.textContent='Reset.'; }
+    });
+
+    /* ===== init ===== */
+    render();
+  </script>
 </body>
 </html>
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;margin:0;background:#0f1220;color:#eef1ff}
-header{position:sticky;top:0;background:#171a2b;border-bottom:1px solid #2b2f45;padding:12px 14px;z-index:10}
-h1{margin:0;font-size:18px}
-.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-button,select,input[type="file"]{background:#1f2340;border:1px solid #2e355a;color:#eef1ff;border-radius:10px;padding:10px 12px;font-size:14px}
-button.primary{background:#3d5afe;border-color:#4b6bff}
-.container{padding:14px}
-.decks{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
-.deck{background:#151936;border:1px solid #2b2f45;border-radius:14px;overflow:hidden}
-.deck header{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#1a1f36;border-bottom:1px solid #2b2f45}
-.cards{padding:10px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.card{background:#10142c;border:1px solid #2b2f45;border-radius:12px;padding:8px;min-height:70px;display:flex;flex-direction:column;justify-content:space-between}
-.card .name{font-size:12px}
-.badge{font-size:10px;padding:3px 6px;border-radius:999px;border:1px solid #2b2f45;display:inline-block;margin-top:6px}
-.none{background:#1c2038}.needed{background:#2b2336}.owned{background:#163327}.duplicate{background:#2b2a12}
-.gold{border:1px dashed #ffcc66}.gold .name::after{content:" 🔒"}
-.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.muted{opacity:.7;font-size:12px}
-textarea{width:100%;min-height:140px;border:1px solid #2b2f45;border-radius:12px;padding:10px;background:#0f1220;color:#eef1ff}
-.tabs{display:flex;gap:8px;margin:8px 0 12px 0}.tab{padding:8px 10px;border-radius:10px;border:1px solid #2b2f45;background:#1a1f36;cursor:pointer;font-size:13px}.tab.active{background:#3d5afe;border-color:#4b6bff}
-.hidden{display:none!important}.panel{background:#141936;border:1px solid #2b2f45;border-radius:12px;padding:12px;margin-bottom:12px}
-.review-card{display:flex;align-items:center;justify-content:space-between;padding:8px;border:1px solid #2b2f45;border-radius:10px;background:#0f1430;margin:6px 0}
-.small{font-size:12px}.dropzone{border:2px dashed #3d5afe;border-radius:12px;padding:14px;text-align:center;background:#0e1230;margin:10px 0 0}
-#pasteBox{border:2px dashed #6a6f9a;border-radius:12px;padding:14px;text-align:center;background:#0e1230;margin:10px 0 0}
-/***** STORAGE KEYS *****/
-const STORAGE_KEY = 'cardTrackerData.v1';
-const TRANSLATE_KEY = 'cardTrackerTranslations.v1';
-
-/***** INITIAL DATA: 15 decks × 9 cards *****/
-function makeDefaultDecks() {
-  const defaultNames = [
-    "Deck 1","Deck 2","Deck 3","Deck 4","Deck 5",
-    "Deck 6","Deck 7","Deck 8","Deck 9","Deck 10",
-    "Deck 11","Deck 12","Deck 13","Deck 14","Deck 15"
-  ];
-  return defaultNames.map((n) => ({
-    name: n,
-    cards: Array.from({ length: 9 }, (_, i) => ({
-      name: `Card ${i+1}`,
-      status: "owned" // needed | duplicate | owned | gold
-    }))
-  }));
-}
-
-/***** STATE *****/
-let decks = loadJSON(STORAGE_KEY) ?? makeDefaultDecks();
-let translationMap = loadJSON(TRANSLATE_KEY) ?? {};
-let currentFilter = 'all';
-
-/***** UTILITIES *****/
-function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(decks)); }
-function saveTranslations() { localStorage.setItem(TRANSLATE_KEY, JSON.stringify(translationMap)); }
-function loadJSON(key) {
-  try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; }
-  catch { return null; }
-}
-function slugStatus(status) { return status === 'gold' ? 'gold' : `status-${status}`; }
-function translateName(name) {
-  const key = name.trim();
-  return translationMap[key] && translationMap[key].trim() ? translationMap[key].trim() : name;
-}
-
-/***** RENDERING *****/
-const deckContainer = document.getElementById('deck-container');
-const outputEl = document.getElementById('output');
-
-function render() {
-  deckContainer.innerHTML = '';
-  decks.forEach((deck, deckIndex) => {
-    const section = document.createElement('section');
-    section.className = 'deck';
-
-    // Deck header
-    const header = document.createElement('div');
-    header.className = 'deck-header';
-
-    const nameEl = document.createElement('div');
-    nameEl.className = 'deck-name';
-    nameEl.contentEditable = 'true';
-    nameEl.textContent = deck.name;
-    nameEl.addEventListener('blur', () => {
-      decks[deckIndex].name = nameEl.textContent.trim() || `Deck ${deckIndex+1}`;
-      save();
-    });
-
-    header.appendChild(nameEl);
-    section.appendChild(header);
-
-    // Cards grid
-    const grid = document.createElement('div');
-    grid.className = 'card-grid';
-
-    deck.cards.forEach((card, cardIndex) => {
-      if (currentFilter !== 'all' && currentFilter !== card.status) return;
-
-      const cardEl = document.createElement('div');
-      cardEl.className = `card ${slugStatus(card.status)}`;
-      if (card.status === 'gold') cardEl.classList.add('gold');
-
-      const nameSpan = document.createElement('div');
-      nameSpan.className = 'name';
-      nameSpan.contentEditable = 'true';
-      nameSpan.textContent = card.name;
-      nameSpan.addEventListener('blur', () => {
-        decks[deckIndex].cards[cardIndex].name = nameSpan.textContent.trim() || `Card ${cardIndex+1}`;
-        save();
-      });
-
-      const badge = document.createElement('span');
-      badge.className = 'badge';
-      badge.textContent = card.status === 'gold' ? 'Unsharable' : card.status;
-
-      const footer = document.createElement('div');
-      footer.className = 'card-footer';
-
-      const toggleGoldBtn = document.createElement('button');
-      toggleGoldBtn.className = 'btn';
-      toggleGoldBtn.textContent = card.status === 'gold' ? 'Ungold' : 'Gold';
-      toggleGoldBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        decks[deckIndex].cards[cardIndex].status = (card.status === 'gold') ? 'owned' : 'gold';
-        save(); render();
-      });
-
-      const cycleBtn = document.createElement('button');
-      cycleBtn.className = 'btn';
-      cycleBtn.textContent = 'Cycle';
-      cycleBtn.disabled = card.status === 'gold';
-      cycleBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        cycleStatus(deckIndex, cardIndex);
-      });
-
-      footer.appendChild(toggleGoldBtn);
-      footer.appendChild(cycleBtn);
-
-      cardEl.addEventListener('click', () => { if (card.status !== 'gold') cycleStatus(deckIndex, cardIndex); });
-
-      cardEl.appendChild(nameSpan);
-      cardEl.appendChild(badge);
-      cardEl.appendChild(footer);
-      grid.appendChild(cardEl);
-    });
-
-    section.appendChild(grid);
-    deckContainer.appendChild(section);
-  });
-}
-
-function cycleStatus(deckIndex, cardIndex) {
-  const order = ['needed', 'duplicate', 'owned'];
-  const card = decks[deckIndex].cards[cardIndex];
-  if (card.status === 'gold') return;
-  const i = order.indexOf(card.status);
-  const next = order[(i + 1) % order.length];
-  decks[deckIndex].cards[cardIndex].status = next;
-  save(); render();
-}
-
-/***** EXPORTS *****/
-function exportList(kind) {
-  const lines = [];
-  decks.forEach((deck) => {
-    const items = deck.cards
-      .filter(c => c.status === kind && c.status !== 'gold')
-      .map(c => translateName(c.name));
-    if (items.length) lines.push(`${deck.name.toUpperCase()} - ${items.join(', ')}`);
-  });
-  const text = lines.join('\n');
-  outputEl.textContent = text || `(No ${kind}s found)`;
-  return text;
-}
-
-/***** BACKUP / RESTORE *****/
-function backupJSON() {
-  const payload = { version: 1, decks, translations: translationMap };
-  const text = JSON.stringify(payload, null, 2);
-  outputEl.textContent = text;
-}
-function confirmRestore() {
-  const raw = document.getElementById('restoreTextarea').value.trim();
-  if (!raw) return;
-  try {
-    const obj = JSON.parse(raw);
-    decks = obj.decks || makeDefaultDecks();
-    translationMap = obj.translations || {};
-    save(); saveTranslations(); render();
-    outputEl.textContent = 'Restored from JSON.';
-  } catch (e) {
-    alert('Restore failed: ' + e.message);
-  }
-}
-
-/***** TRANSLATIONS *****/
-function addNewTranslation() {
-  const foreign = document.getElementById('newForeign').value.trim();
-  const english = document.getElementById('newEnglish').value.trim();
-  if (!foreign) return;
-  translationMap[foreign] = english || '';
-  saveTranslations();
-}
-
-/***** FILTER *****/
-function setFilter(v) { currentFilter = v; render(); }
-
-/***** INIT *****/
-render();
