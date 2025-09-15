@@ -5,10 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Card Tracker</title>
   <style>
+    :root{
+      --deck-gap:14px;
+      --card-min:150px;       /* card min width */
+      --card-h:64px;          /* fixed card height so they don't expand */
+      --pill-font:11px;
+    }
     *{box-sizing:border-box}
     body{
       font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-      margin:0;background:#fff;color:#111
+      margin:0;background:#fff;color:#111;
     }
     header{position:sticky;top:0;z-index:10;background:#fff;border-bottom:1px solid #e5e5e5;padding:12px}
     .toolbar{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:center}
@@ -17,23 +23,35 @@
     button:active{transform:scale(.98)}
     main{max-width:1200px;margin:0 auto;padding:14px}
     .output{white-space:pre-wrap;background:#fafafa;border:1px solid #e7e7e7;border-radius:10px;padding:10px;margin:12px 0}
-    .decks{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
-    .deck{background:#fff;border:1px solid #e7e7e7;border-radius:12px;padding:10px}
+
+    /* === 4 decks per row on desktop, 2 on tablet, 1 on phone === */
+    .decks{display:grid;gap:var(--deck-gap);
+      grid-template-columns:repeat(4,1fr);}
+    @media (max-width:1100px){.decks{grid-template-columns:repeat(3,1fr)}}
+    @media (max-width:900px){.decks{grid-template-columns:repeat(2,1fr)}}
+    @media (max-width:560px){.decks{grid-template-columns:1fr}}
+
+    .deck{background:#fff;border:1px solid #e7e7e7;border-radius:12px;padding:10px;min-width:0}
     .deck-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
     .deck-name{font-weight:700;font-size:16px;padding:4px 6px;border-radius:6px}
     .deck-name[contenteditable="true"]{outline:2px dashed #cfcfcf}
-    .counts{font-size:12px;color:#666}
-    .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
-    .card{border:1px solid #ddd;border-radius:10px;background:#f6f6f6;min-height:48px;padding:6px;display:flex;flex-direction:column;gap:6px}
-    .name{font-size:13px;padding:4px;border-radius:6px;background:#fff}
+    .counts{font-size:12px;color:#666;white-space:nowrap}
+
+    .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--card-min),1fr));gap:8px}
+    .card{
+      border:1px solid #ddd;border-radius:12px;background:#f8f8f8;
+      height:var(--card-h); padding:8px;
+      display:flex;flex-direction:column;justify-content:space-between;min-width:0;
+    }
+    .name{font-size:14px;padding:4px 6px;border-radius:6px;background:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .name[contenteditable="true"]{outline:1px dashed #c9a600;background:#fffceb}
     .row{display:flex;gap:6px;align-items:center;justify-content:flex-end}
-    .badge{font-size:11px;padding:2px 6px;border-radius:999px;border:1px solid #ccc;background:#fff}
-    .btn{font-size:11px;padding:4px 6px;border-radius:6px;border:1px solid #cfcfcf;background:#fff}
-    .needed{background:#fff1f1;border-color:#f4c4c4}
-    .duplicate{background:#eef5ff;border-color:#cfe2ff}
-    .owned{background:#eefbea;border-color:#cdeac0}
+    .pill{font-size:var(--pill-font);padding:2px 8px;border-radius:999px;border:1px solid #cfcfcf;background:#fff;white-space:nowrap}
+    .needed{background:#fff1f1}
+    .duplicate{background:#eef5ff}
+    .owned{background:#eefbea}
     .gold{background:#fee68a !important;border-color:#e3c24c !important}
+
     dialog{border:none;border-radius:12px;padding:0;width:min(700px,96vw)}
     dialog::backdrop{background:rgba(0,0,0,.35)}
     .dialog{padding:16px}
@@ -51,6 +69,7 @@
       </select>
       <button id="makeList" class="primary">Make List</button>
       <button id="copyList">Copy</button>
+
       <select id="filterSel" title="Filter">
         <option value="all">Show: All</option>
         <option value="needed">Needed</option>
@@ -58,9 +77,11 @@
         <option value="owned">Owned</option>
         <option value="gold">Gold (Unsharable)</option>
       </select>
+
       <button id="openTranslations">Translations</button>
       <button id="backupBtn">Backup JSON</button>
       <button id="restoreBtn">Restore JSON</button>
+      <button id="loadExample">Load Example Names</button>
       <button id="resetBtn">Reset</button>
     </div>
   </header>
@@ -105,14 +126,23 @@
     const STORAGE_KEY = 'cardTrackerData.v1';
     const TRANSLATE_KEY = 'cardTrackerTranslations.v1';
 
-    /* ===== initial data: 15 decks x 9 cards ===== */
+    /* ===== defaults ===== */
     function makeDefaultDecks() {
-      const names = ["BEACH","VOYAGE","DIVING","BARBECUE","RAFTING","RESORT","CHILL","PATIO","EXTREME","SUNSHINE","PARTY","SPORT","MUSIC","ANIMALS","TRAVEL"];
-      return names.map((n,di)=>({
+      const names = ["BEACH","VOYAGE","DIVING","BARBECUE","RAFTING",
+                     "RESORT","CHILL","PATIO","EXTREME","SUNSHINE",
+                     "PARTY","SPORT","MUSIC","ANIMALS","TRAVEL"];
+      return names.map((n)=>({
         name:n,
         cards:Array.from({length:9},(_,i)=>({name:`Card ${i+1}`,status:"owned"}))
       }));
     }
+
+    /* Example data for quick visual check (you can edit inline after) */
+    const EXAMPLE = {
+      "BEACH":["beachball","pier","beverage","life ring","beach bar","conch shell","parasol","sand castle","flamingo"],
+      "VOYAGE":["cable car","camera","passport","guidebook","ticket","scooter","van","suitcase","train"],
+      "DIVING":["reef","turtle","seashell","jellyfish","fins","seahorse","crab","divingsuit","submarine"]
+    };
 
     /* ===== state ===== */
     let decks = loadJSON(STORAGE_KEY) ?? makeDefaultDecks();
@@ -125,65 +155,43 @@
     function saveTrans(){ localStorage.setItem(TRANSLATE_KEY, JSON.stringify(translations)); }
     function t(name){ const k=name.trim(); return translations[k]?.trim() || name; }
     function statusClass(s){ return s==='gold'?'gold':s; }
+    function counts(deck){ let N=0,O=0,D=0; deck.cards.forEach(c=>{ if(c.status==='needed') N++; else if(c.status==='owned') O++; else if(c.status==='duplicate') D++; }); return {N,O,D}; }
 
     /* ===== render ===== */
     const decksEl = document.getElementById('decks');
     const outEl = document.getElementById('output');
-
-    function countDeck(deck){
-      let N=0,O=0,D=0;
-      deck.cards.forEach(c=>{
-        if(c.status==='needed') N++;
-        else if(c.status==='owned') O++;
-        else if(c.status==='duplicate') D++;
-      });
-      return {N,O,D};
-    }
 
     function render(){
       decksEl.innerHTML='';
       decks.forEach((deck, di)=>{
         const wrap=document.createElement('section'); wrap.className='deck';
 
-        // header
         const head=document.createElement('div'); head.className='deck-head';
         const name=document.createElement('div'); name.className='deck-name'; name.contentEditable='true'; name.textContent=deck.name;
         name.addEventListener('blur',()=>{ decks[di].name=name.textContent.trim()||`Deck ${di+1}`; save(); render(); });
+        const c=counts(deck);
+        const meter=document.createElement('div'); meter.className='counts'; meter.textContent=`N:${c.N} O:${c.O} D:${c.D}`;
+        head.appendChild(name); head.appendChild(meter); wrap.appendChild(head);
 
-        const {N,O,D}=countDeck(deck);
-        const counts=document.createElement('div'); counts.className='counts'; counts.textContent=`N:${N} O:${O} D:${D}`;
-
-        head.appendChild(name); head.appendChild(counts); wrap.appendChild(head);
-
-        // cards
         const grid=document.createElement('div'); grid.className='cards';
-
         deck.cards.forEach((card, ci)=>{
           if(filter!=='all' && filter!==card.status) return;
-
           const cardEl=document.createElement('div'); cardEl.className=`card ${statusClass(card.status)}`;
 
           const nm=document.createElement('div'); nm.className='name'; nm.contentEditable='true'; nm.textContent=card.name;
-          nm.addEventListener('blur',()=>{ decks[di].cards[ci].name = nm.textContent.trim()||`Card ${ci+1}`; save(); render(); });
+          nm.addEventListener('blur',()=>{ decks[di].cards[ci].name = nm.textContent.trim()||`Card ${ci+1}`; save(); });
 
           const row=document.createElement('div'); row.className='row';
-          const badge=document.createElement('span'); badge.className='badge';
-          badge.textContent = card.status==='gold'?'Unsharable':card.status[0].toUpperCase()+card.status.slice(1);
+          const status=document.createElement('span'); status.className='pill';
+          status.textContent=(card.status==='gold'?'Unsharable':card.status[0].toUpperCase()+card.status.slice(1));
+          const gold=document.createElement('button'); gold.className='pill'; gold.textContent=(card.status==='gold'?'Un-gold':'Gold');
+          gold.title='Toggle gold';
+          gold.addEventListener('click',(e)=>{ e.stopPropagation(); decks[di].cards[ci].status = (card.status==='gold')?'owned':'gold'; save(); render(); });
 
-          const goldBtn=document.createElement('button'); goldBtn.className='btn'; goldBtn.textContent = card.status==='gold'?'Ungold':'Gold';
-          goldBtn.title='Toggle Gold';
-          goldBtn.addEventListener('click', (e)=>{ e.stopPropagation();
-            decks[di].cards[ci].status = card.status==='gold' ? 'owned' : 'gold'; save(); render();
-          });
+          row.appendChild(status); row.appendChild(gold);
 
-          const cycleBtn=document.createElement('button'); cycleBtn.className='btn'; cycleBtn.textContent='Cycle';
-          cycleBtn.disabled = card.status==='gold';
-          cycleBtn.addEventListener('click',(e)=>{ e.stopPropagation(); cycle(di,ci); });
-
-          row.appendChild(badge); row.appendChild(goldBtn); row.appendChild(cycleBtn);
-
-          // clicking card cycles (except gold)
-          cardEl.addEventListener('click', ()=>{ if(card.status!=='gold') cycle(di,ci); });
+          // tap card to cycle (no big button = no layout shifts)
+          cardEl.addEventListener('click', ()=>{ if(card.status!=='gold'){ cycle(di,ci); }});
 
           cardEl.appendChild(nm); cardEl.appendChild(row); grid.appendChild(cardEl);
         });
@@ -195,91 +203,57 @@
     function cycle(di,ci){
       const order=['needed','duplicate','owned'];
       const c=decks[di].cards[ci];
-      if(c.status==='gold') return;
-      const i=order.indexOf(c.status); decks[di].cards[ci].status = order[(i+1)%order.length];
+      const i=order.indexOf(c.status);
+      decks[di].cards[ci].status = order[(i+1)%order.length];
       save(); render();
     }
 
-    /* ===== export lists ===== */
+    /* ===== export ===== */
     function makeList(kind){
       const lines=[];
       decks.forEach(d=>{
         const items=d.cards.filter(c=>c.status===kind && c.status!=='gold').map(c=>t(c.name));
         if(items.length) lines.push(`**${d.name}** — ${items.join(', ')}`);
       });
-      const text = lines.join('\n\n');
-      outEl.textContent = text || `(No ${kind}s found)`;
-      return text;
+      const text=lines.join('\n\n'); outEl.textContent=text || `(No ${kind}s found)`; return text;
     }
+    async function copyOut(){ const txt=outEl.textContent||''; if(!txt) return; try{ await navigator.clipboard.writeText(txt); outEl.textContent += '\n\n(Copied)'; }catch{ prompt('Copy this text:', txt);} }
 
-    async function copyOut(){
-      const txt = outEl.textContent || '';
-      if(!txt) return;
-      try{ await navigator.clipboard.writeText(txt); outEl.textContent += '\n\n(Copied)'; }
-      catch{ prompt('Copy this text:', txt); }
-    }
-
-    /* ===== backup / restore ===== */
-    document.getElementById('backupBtn').addEventListener('click', ()=>{
-      outEl.textContent = JSON.stringify({version:1,decks,translations}, null, 2);
-    });
-
-    document.getElementById('restoreBtn').addEventListener('click', ()=>{
-      document.getElementById('restoreTxt').value='';
-      document.getElementById('restoreDlg').showModal();
-    });
-
+    /* ===== backup/restore ===== */
+    document.getElementById('backupBtn').addEventListener('click', ()=>{ outEl.textContent = JSON.stringify({version:1,decks,translations}, null, 2); });
+    document.getElementById('restoreBtn').addEventListener('click', ()=>{ document.getElementById('restoreTxt').value=''; document.getElementById('restoreDlg').showModal(); });
     document.getElementById('doRestore').addEventListener('click', ()=>{
-      const raw = document.getElementById('restoreTxt').value.trim(); if(!raw) return;
-      try{
-        const obj=JSON.parse(raw);
-        decks = Array.isArray(obj.decks)? obj.decks : makeDefaultDecks();
-        translations = obj.translations || {};
-        save(); saveTrans(); document.getElementById('restoreDlg').close(); render();
-        outEl.textContent='Restored.';
-      }catch(e){ alert('Restore failed: '+e.message); }
+      const raw=document.getElementById('restoreTxt').value.trim(); if(!raw) return;
+      try{ const obj=JSON.parse(raw); decks = Array.isArray(obj.decks)? obj.decks : makeDefaultDecks(); translations = obj.translations || {}; save(); saveTrans(); document.getElementById('restoreDlg').close(); render(); outEl.textContent='Restored.';}
+      catch(e){ alert('Restore failed: '+e.message); }
     });
 
-    /* ===== translations modal ===== */
+    /* ===== translations ===== */
     function openTrans(){
-      const rows = document.getElementById('rows'); rows.innerHTML='';
+      const rows=document.getElementById('rows'); rows.innerHTML='';
       Object.entries(translations).forEach(([f,e])=>addRow(rows,f,e));
       document.getElementById('transDlg').showModal();
     }
     function addRow(container, foreign, english){
       const f=document.createElement('input'); f.value=foreign; const e=document.createElement('input'); e.value=english;
-      const del=document.createElement('button'); del.textContent='✕'; del.className='btn';
+      const del=document.createElement('button'); del.textContent='✕'; del.className='pill';
       const row=document.createElement('div'); row.style.display='contents';
       del.addEventListener('click', ()=>{ delete translations[foreign]; saveTrans(); container.removeChild(row); });
       f.addEventListener('blur', ()=>{ if(foreign!==f.value){ delete translations[foreign]; foreign=f.value; } if(foreign) translations[foreign]=e.value||''; saveTrans(); });
       e.addEventListener('blur', ()=>{ if(foreign) translations[foreign]=e.value||''; saveTrans(); });
       row.appendChild(f); row.appendChild(e); row.appendChild(del); container.appendChild(row);
     }
-
     document.getElementById('addPair').addEventListener('click', ()=>{
       const f=document.getElementById('newForeign'), e=document.getElementById('newEnglish');
       const fv=f.value.trim(), ev=e.value.trim(); if(!fv) return;
-      translations[fv]=ev||''; saveTrans();
-      addRow(document.getElementById('rows'), fv, ev); f.value=''; e.value='';
+      translations[fv]=ev||''; saveTrans(); addRow(document.getElementById('rows'), fv, ev); f.value=''; e.value='';
     });
+    document.getElementById('clearPairs').addEventListener('click', ()=>{ if(confirm('Clear ALL translations?')){ translations={}; saveTrans(); document.getElementById('rows').innerHTML=''; } });
 
-    document.getElementById('clearPairs').addEventListener('click', ()=>{
-      if(confirm('Clear ALL translations?')){ translations={}; saveTrans(); document.getElementById('rows').innerHTML=''; }
-    });
-
-    /* ===== filter, list, copy, reset ===== */
+    /* ===== wiring ===== */
     document.getElementById('filterSel').addEventListener('change', e=>{ filter=e.target.value; render(); });
-    document.getElementById('makeList').addEventListener('click', ()=>{
-      const kind=document.getElementById('listKind').value; makeList(kind);
-    });
+    document.getElementById('makeList').addEventListener('click', ()=>{ makeList(document.getElementById('listKind').value); });
     document.getElementById('copyList').addEventListener('click', copyOut);
     document.getElementById('openTranslations').addEventListener('click', openTrans);
-    document.getElementById('resetBtn').addEventListener('click', ()=>{
-      if(confirm('Reset all decks and translations?')){ decks=makeDefaultDecks(); translations={}; save(); saveTrans(); render(); outEl.textContent='Reset.'; }
-    });
-
-    /* ===== init ===== */
-    render();
-  </script>
-</body>
-</html>
+    document.getElementById('resetBtn').addEventListener('click', ()=>{ if(confirm('Reset all decks and translations?')){ decks=makeDefaultDecks(); translations={}; save(); saveTrans(); render(); outEl.textContent='Reset.'; } });
+    document.getElementB
