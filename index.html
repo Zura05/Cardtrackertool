@@ -6,10 +6,7 @@
   <title>Card Tracker</title>
   <style>
     *{box-sizing:border-box}
-    body{
-      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-      margin:0;background:#fff;color:#111
-    }
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;margin:0;background:#fff;color:#111}
     header{position:sticky;top:0;z-index:10;background:#fff;border-bottom:1px solid #e5e5e5;padding:12px}
     .toolbar{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:center}
     button,select{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid #cfcfcf;background:#fff;cursor:pointer}
@@ -24,7 +21,7 @@
     .deck-name[contenteditable="true"]{outline:2px dashed #cfcfcf}
     .counts{font-size:12px;color:#666}
     .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
-    .card{border:1px solid #ddd;border-radius:10px;background:#f6f6f6;min-height:48px;padding:6px;display:flex;flex-direction:column;gap:6px}
+    .card{border:1px solid #ddd;border-radius:10px;background:#f6f6f6;min-height:48px;padding:6px;display:flex;flex-direction:column;gap:6px;cursor:pointer}
     .name{font-size:13px;padding:4px;border-radius:6px;background:#fff}
     .name[contenteditable="true"]{outline:1px dashed #c9a600;background:#fffceb}
     .row{display:flex;gap:6px;align-items:center;justify-content:flex-end}
@@ -59,8 +56,6 @@
         <option value="gold">Gold (Unsharable)</option>
       </select>
       <button id="openTranslations">Translations</button>
-      <button id="backupBtn">Backup JSON</button>
-      <button id="restoreBtn">Restore JSON</button>
       <button id="resetBtn">Reset</button>
     </div>
   </header>
@@ -70,61 +65,24 @@
     <div id="decks" class="decks"></div>
   </main>
 
-  <!-- Translations Modal -->
-  <dialog id="transDlg">
-    <form method="dialog" class="dialog">
-      <h3>Translation Map (Foreign → English)</h3>
-      <p class="muted">Exports will use English if a mapping exists. Example: <code>Playa → Beach</code>.</p>
-      <div id="rows" class="grid3"></div>
-      <div class="grid3">
-        <input id="newForeign" placeholder="Foreign name" />
-        <input id="newEnglish" placeholder="English name" />
-        <button id="addPair" type="button">Add</button>
-      </div>
-      <menu>
-        <button id="clearPairs" type="button">Clear All</button>
-        <button value="cancel">Close</button>
-      </menu>
-    </form>
-  </dialog>
-
-  <!-- Restore Modal -->
-  <dialog id="restoreDlg">
-    <form method="dialog" class="dialog">
-      <h3>Restore from JSON</h3>
-      <textarea id="restoreTxt" rows="10" placeholder='Paste backup JSON here'></textarea>
-      <menu>
-        <button id="doRestore" type="button">Restore</button>
-        <button value="cancel">Cancel</button>
-      </menu>
-    </form>
-  </dialog>
-
   <script>
-    /* ===== storage keys ===== */
-    const STORAGE_KEY = 'cardTrackerData.v1';
-    const TRANSLATE_KEY = 'cardTrackerTranslations.v1';
-
     /* ===== initial data: 15 decks x 9 cards ===== */
     function makeDefaultDecks() {
-      const names = ["BEACH","VOYAGE","DIVING","BARBECUE","RAFTING","RESORT","CHILL","PATIO","EXTREME","SUNSHINE","PARTY","SPORT","MUSIC","ANIMALS","TRAVEL"];
+      const names = [
+        "BEACH","VOYAGE","DIVING","BARBECUE","RAFTING",
+        "RESORT","CHILL","PATIO","EXTREME","SUNSHINE",
+        "PARTY","SPORT","MUSIC","ANIMALS","TRAVEL"
+      ];
       return names.map((n,di)=>({
         name:n,
         cards:Array.from({length:9},(_,i)=>({name:`Card ${i+1}`,status:"owned"}))
       }));
     }
 
-    /* ===== state ===== */
-    let decks = loadJSON(STORAGE_KEY) ?? makeDefaultDecks();
-    let translations = loadJSON(TRANSLATE_KEY) ?? {};
+    /* ===== state (always fresh) ===== */
+    let decks = makeDefaultDecks();
+    let translations = {};
     let filter = 'all';
-
-    /* ===== utils ===== */
-    function loadJSON(k){ try{const r=localStorage.getItem(k); return r?JSON.parse(r):null;}catch{return null} }
-    function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(decks)); }
-    function saveTrans(){ localStorage.setItem(TRANSLATE_KEY, JSON.stringify(translations)); }
-    function t(name){ const k=name.trim(); return translations[k]?.trim() || name; }
-    function statusClass(s){ return s==='gold'?'gold':s; }
 
     /* ===== render ===== */
     const decksEl = document.getElementById('decks');
@@ -133,9 +91,7 @@
     function countDeck(deck){
       let N=0,O=0,D=0;
       deck.cards.forEach(c=>{
-        if(c.status==='needed') N++;
-        else if(c.status==='owned') O++;
-        else if(c.status==='duplicate') D++;
+        if(c.status==='needed') N++; else if(c.status==='owned') O++; else if(c.status==='duplicate') D++;
       });
       return {N,O,D};
     }
@@ -145,35 +101,26 @@
       decks.forEach((deck, di)=>{
         const wrap=document.createElement('section'); wrap.className='deck';
 
-        // header
         const head=document.createElement('div'); head.className='deck-head';
         const name=document.createElement('div'); name.className='deck-name'; name.contentEditable='true'; name.textContent=deck.name;
-        name.addEventListener('blur',()=>{ decks[di].name=name.textContent.trim()||`Deck ${di+1}`; save(); render(); });
-
         const {N,O,D}=countDeck(deck);
         const counts=document.createElement('div'); counts.className='counts'; counts.textContent=`N:${N} O:${O} D:${D}`;
-
         head.appendChild(name); head.appendChild(counts); wrap.appendChild(head);
 
-        // cards
         const grid=document.createElement('div'); grid.className='cards';
-
         deck.cards.forEach((card, ci)=>{
           if(filter!=='all' && filter!==card.status) return;
-
-          const cardEl=document.createElement('div'); cardEl.className=`card ${statusClass(card.status)}`;
+          const cardEl=document.createElement('div'); cardEl.className=`card ${card.status}`;
 
           const nm=document.createElement('div'); nm.className='name'; nm.contentEditable='true'; nm.textContent=card.name;
-          nm.addEventListener('blur',()=>{ decks[di].cards[ci].name = nm.textContent.trim()||`Card ${ci+1}`; save(); render(); });
 
           const row=document.createElement('div'); row.className='row';
           const badge=document.createElement('span'); badge.className='badge';
           badge.textContent = card.status==='gold'?'Unsharable':card.status[0].toUpperCase()+card.status.slice(1);
 
           const goldBtn=document.createElement('button'); goldBtn.className='btn'; goldBtn.textContent = card.status==='gold'?'Ungold':'Gold';
-          goldBtn.title='Toggle Gold';
           goldBtn.addEventListener('click', (e)=>{ e.stopPropagation();
-            decks[di].cards[ci].status = card.status==='gold' ? 'owned' : 'gold'; save(); render();
+            decks[di].cards[ci].status = card.status==='gold' ? 'owned' : 'gold'; render();
           });
 
           const cycleBtn=document.createElement('button'); cycleBtn.className='btn'; cycleBtn.textContent='Cycle';
@@ -181,8 +128,6 @@
           cycleBtn.addEventListener('click',(e)=>{ e.stopPropagation(); cycle(di,ci); });
 
           row.appendChild(badge); row.appendChild(goldBtn); row.appendChild(cycleBtn);
-
-          // clicking card cycles (except gold)
           cardEl.addEventListener('click', ()=>{ if(card.status!=='gold') cycle(di,ci); });
 
           cardEl.appendChild(nm); cardEl.appendChild(row); grid.appendChild(cardEl);
@@ -197,81 +142,25 @@
       const c=decks[di].cards[ci];
       if(c.status==='gold') return;
       const i=order.indexOf(c.status); decks[di].cards[ci].status = order[(i+1)%order.length];
-      save(); render();
+      render();
     }
 
-    /* ===== export lists ===== */
     function makeList(kind){
       const lines=[];
       decks.forEach(d=>{
-        const items=d.cards.filter(c=>c.status===kind && c.status!=='gold').map(c=>t(c.name));
+        const items=d.cards.filter(c=>c.status===kind && c.status!=='gold').map(c=>c.name);
         if(items.length) lines.push(`**${d.name}** — ${items.join(', ')}`);
       });
-      const text = lines.join('\n\n');
-      outEl.textContent = text || `(No ${kind}s found)`;
-      return text;
+      outEl.textContent = lines.join('\n\n') || `(No ${kind}s found)`;
     }
 
-    async function copyOut(){
-      const txt = outEl.textContent || '';
-      if(!txt) return;
-      try{ await navigator.clipboard.writeText(txt); outEl.textContent += '\n\n(Copied)'; }
-      catch{ prompt('Copy this text:', txt); }
-    }
-
-    /* ===== backup / restore ===== */
-    document.getElementById('backupBtn').addEventListener('click', ()=>{
-      outEl.textContent = JSON.stringify({version:1,decks,translations}, null, 2);
-    });
-
-    document.getElementById('restoreBtn').addEventListener('click', ()=>{
-      document.getElementById('restoreTxt').value='';
-      document.getElementById('restoreDlg').showModal();
-    });
-
-    document.getElementById('doRestore').addEventListener('click', ()=>{
-      const raw = document.getElementById('restoreTxt').value.trim(); if(!raw) return;
-      try{
-        const obj=JSON.parse(raw);
-        decks = Array.isArray(obj.decks)? obj.decks : makeDefaultDecks();
-        translations = obj.translations || {};
-        save(); saveTrans(); document.getElementById('restoreDlg').close(); render();
-        outEl.textContent='Restored.';
-      }catch(e){ alert('Restore failed: '+e.message); }
-    });
-
-    /* ===== translations modal ===== */
-    function openTrans(){
-      const rows = document.getElementById('rows'); rows.innerHTML='';
-      Object.entries(translations).forEach(([f,e])=>addRow(rows,f,e));
-      document.getElementById('transDlg').showModal();
-    }
-    function addRow(container, foreign, english){
-      const f=document.createElement('input'); f.value=foreign; const e=document.createElement('input'); e.value=english;
-      const del=document.createElement('button'); del.textContent='✕'; del.className='btn';
-      const row=document.createElement('div'); row.style.display='contents';
-      del.addEventListener('click', ()=>{ delete translations[foreign]; saveTrans(); container.removeChild(row); });
-      f.addEventListener('blur', ()=>{ if(foreign!==f.value){ delete translations[foreign]; foreign=f.value; } if(foreign) translations[foreign]=e.value||''; saveTrans(); });
-      e.addEventListener('blur', ()=>{ if(foreign) translations[foreign]=e.value||''; saveTrans(); });
-      row.appendChild(f); row.appendChild(e); row.appendChild(del); container.appendChild(row);
-    }
-
-    document.getElementById('addPair').addEventListener('click', ()=>{
-      const f=document.getElementById('newForeign'), e=document.getElementById('newEnglish');
-      const fv=f.value.trim(), ev=e.value.trim(); if(!fv) return;
-      translations[fv]=ev||''; saveTrans();
-      addRow(document.getElementById('rows'), fv, ev); f.value=''; e.value='';
-    });
-
-    document.getElementById('clearPairs').addEventListener('click', ()=>{
-      if(confirm('Clear ALL translations?')){ translations={}; saveTrans(); document.getElementById('rows').innerHTML=''; }
-    });
-
-    /* ===== filter, list, copy, reset ===== */
     document.getElementById('filterSel').addEventListener('change', e=>{ filter=e.target.value; render(); });
-    document.getElementById('makeList').addEventListener('click', ()=>{
-      const kind=document.getElementById('listKind').value; makeList(kind);
-    });
-    document.getElementById('copyList').addEventListener('click', copyOut);
-    document.getElementById('openTranslations').addEventListener('click', openTrans);
-    document.getElementById('reset
+    document.getElementById('makeList').addEventListener('click', ()=>{ makeList(document.getElementById('listKind').value); });
+    document.getElementById('copyList').addEventListener('click', ()=>{ navigator.clipboard.writeText(outEl.textContent); });
+    document.getElementById('openTranslations').addEventListener('click', ()=>{ alert('Translations disabled in fresh mode'); });
+    document.getElementById('resetBtn').addEventListener('click', ()=>{ decks=makeDefaultDecks(); translations={}; render(); outEl.textContent='Reset complete.'; });
+
+    document.addEventListener('DOMContentLoaded', render);
+  </script>
+</body>
+</html>
