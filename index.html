@@ -7,7 +7,7 @@
   <style>
     :root{
       --app-bg:#f3f4f6;      /* page background (neutral gray) */
-      --panel-bg:#ffffff;    /* header, cards, panels */
+      --panel-bg:#f3f4f6;    /* header, cards, panels */
       --card-bg:#f7f7f8;     /* card tile background */
       --text:#111;
       --border:#e5e5e5;
@@ -130,6 +130,154 @@
       return {N,O,D,G};
     }
 
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Card Tracker</title>
+  <style>
+    /* ==== Dark theme & layout ==== */
+    *{box-sizing:border-box}
+    :root{
+      --bg:#0f1220;          /* page background */
+      --text:#eef1ff;        /* primary text */
+      --panel:#151936;       /* deck bg */
+      --panel-border:#2b2f45;
+      --header:#171a2b;
+      --muted:#9aa1c3;
+      --card:#10142c;        /* card bg */
+      --card-border:#2b2f45;
+
+      --needed:#2b2336;      /* statuses */
+      --duplicate:#2b2a12;
+      --owned:#163327;
+      --gold:#3a2b12;
+    }
+
+    body{
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+      margin:0;background:var(--bg);color:var(--text)
+    }
+    header{position:sticky;top:0;z-index:10;background:var(--header);border-bottom:1px solid var(--panel-border);padding:12px}
+    .toolbar{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:center}
+    button,select{
+      font:inherit;padding:8px 10px;border-radius:10px;border:1px solid var(--panel-border);
+      background:#1f2340;color:var(--text);cursor:pointer
+    }
+    button.primary{background:#3d5afe;border-color:#4b6bff;color:#fff}
+    button:active{transform:scale(.98)}
+
+    main{max-width:1200px;margin:0 auto;padding:14px}
+    .output{white-space:pre-wrap;background:#0f1430;border:1px solid var(--panel-border);border-radius:12px;padding:10px;margin:12px 0}
+
+    /* 4 decks across on desktop */
+    .decks{display:grid;grid-template-columns:repeat(4,minmax(240px,1fr));gap:12px}
+    @media (max-width:1100px){.decks{grid-template-columns:repeat(3,minmax(220px,1fr))}}
+    @media (max-width:800px){.decks{grid-template-columns:repeat(2,minmax(200px,1fr))}}
+    @media (max-width:520px){.decks{grid-template-columns:1fr}}
+
+    .deck{background:var(--panel);border:1px solid var(--panel-border);border-radius:14px;padding:10px}
+    .deck-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+    .deck-name{font-weight:700;font-size:16px;padding:4px 6px;border-radius:6px}
+    .deck-name[contenteditable="true"]{outline:2px dashed var(--panel-border)}
+    .counts{font-size:12px;color:var(--muted)}
+
+    .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+    .card{border:1px solid var(--card-border);border-radius:12px;background:var(--card);min-height:60px;padding:8px;display:flex;flex-direction:column;gap:8px}
+    .name{font-size:13px;padding:6px;border-radius:8px;background:#0f1220;color:var(--text)}
+    .name[contenteditable="true"]{outline:1px dashed #6a6f9a;background:#0f162f}
+    .row{display:flex;gap:6px;align-items:center;justify-content:space-between}
+    .badge{font-size:11px;padding:2px 6px;border-radius:999px;border:1px solid var(--panel-border);background:#0f162f}
+    .btn{font-size:11px;padding:6px 8px;border-radius:8px;border:1px solid var(--panel-border);background:#1f2340;color:var(--text)}
+
+    /* status tints */
+    .status-needed{background:var(--needed)}
+    .status-duplicate{background:var(--duplicate)}
+    .status-owned{background:var(--owned)}
+    .gold{background:var(--gold);border-style:dashed}
+    .gold .name::after{content:" 🔒"}
+    .muted{color:var(--muted);font-size:12px}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="toolbar">
+      <select id="listKind">
+        <option value="duplicate">Duplicates</option>
+        <option value="needed">Needed</option>
+      </select>
+      <button id="makeList" class="primary">Make List</button>
+      <button id="copyList">Copy</button>
+      <select id="filterSel" title="Filter">
+        <option value="all">Show: All</option>
+        <option value="needed">Needed</option>
+        <option value="duplicate">Duplicate</option>
+        <option value="owned">Owned</option>
+        <option value="gold">Gold (Unsharable)</option>
+      </select>
+      <button id="resetBtn">Reset</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="output" class="output" aria-live="polite"></div>
+    <div id="decks" class="decks"></div>
+  </main>
+
+  <script>
+    // === Config: persistence off by default (fresh every load). Set true to enable localStorage. ===
+    const USE_STORAGE = false;
+    const STORAGE_KEY = 'cardTrackerData.v1';
+
+    // Show runtime errors in the Output panel (so silent crashes aren't a mystery on GitHub Pages)
+    window.onerror = (msg, src, line, col, err) => {
+      const out = document.getElementById('output');
+      if (out) out.textContent = 'Error: ' + msg + '\\n' + (err && err.stack ? err.stack : (src||'')+':'+line+':'+col);
+    };
+
+    // ---------- Data ----------
+    function makeDefaultDecks() {
+      const names = [
+        "BEACH","VOYAGE","DIVING","BARBECUE","RAFTING",
+        "RESORT","CHILL","PATIO","EXTREME","SUNSHINE",
+        "PARTY","SPORT","MUSIC","ANIMALS","TRAVEL"
+      ];
+      return names.map((n)=>({
+        name:n,
+        cards:Array.from({length:9},(_,i)=>({name:`Card ${i+1}`,status:"owned"}))
+      }));
+    }
+
+    function loadData(){
+      if(!USE_STORAGE) return makeDefaultDecks();
+      try{
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : makeDefaultDecks();
+      }catch{ return makeDefaultDecks(); }
+    }
+    function save(){ if(USE_STORAGE) localStorage.setItem(STORAGE_KEY, JSON.stringify(decks)); }
+
+    let decks = loadData();
+    let filter = 'all';
+
+    // ---------- Helpers ----------
+    const decksEl = document.getElementById('decks');
+    const outEl = document.getElementById('output');
+
+    function countDeck(deck){
+      let N=0,O=0,D=0,G=0;
+      deck.cards.forEach(c=>{
+        if(c.status==='needed') N++;
+        else if(c.status==='duplicate') D++;
+        else if(c.status==='owned') O++;
+        else if(c.status==='gold') G++;
+      });
+      return {N,O,D,G};
+    }
+    function statusClass(s){ return s==='gold' ? 'gold' : `status-${s}`; }
+
+    // ---------- Render ----------
     function render(){
       decksEl.innerHTML='';
       decks.forEach((deck, di)=>{
@@ -157,7 +305,7 @@
         deck.cards.forEach((card, ci)=>{
           if(filter!=='all' && filter!==card.status) return;
 
-          const cardEl=document.createElement('div'); cardEl.className=`card ${card.status}`;
+          const cardEl=document.createElement('div'); cardEl.className=`card ${statusClass(card.status)}`;
 
           const nm=document.createElement('div'); nm.className='name'; nm.contentEditable='true'; nm.textContent=card.name;
           // card name save-on-blur + Enter
@@ -210,16 +358,17 @@
           row.appendChild(goldBtn);
 
           // IMPORTANT: no card-wide click cycling (one-button means one-button)
-          cardEl.appendChild(nm); 
-          cardEl.appendChild(row); 
+          cardEl.appendChild(nm);
+          cardEl.appendChild(row);
           grid.appendChild(cardEl);
         });
 
-        wrap.appendChild(grid); 
+        wrap.appendChild(grid);
         decksEl.appendChild(wrap);
       });
     }
 
+    // ---------- Lists ----------
     function makeList(kind){
       const lines=[];
       decks.forEach(d=>{
@@ -228,27 +377,30 @@
           .map(c=>c.name);
         if(items.length) lines.push(`**${d.name}** — ${items.join(', ')}`);
       });
-      outEl.textContent = lines.join('\n\n') || `(No ${kind}s found)`;
+      outEl.textContent = lines.join('\\n\\n') || `(No ${kind}s found)`;
     }
 
-    // controls
+    // ---------- Controls ----------
     document.getElementById('filterSel').addEventListener('change', e=>{ filter=e.target.value; render(); });
     document.getElementById('makeList').addEventListener('click', ()=>{ makeList(document.getElementById('listKind').value); });
     document.getElementById('copyList').addEventListener('click', ()=>{
       const txt = outEl.textContent || '';
       if(!txt.trim()){ alert('Nothing to copy yet. Make a list first.'); return; }
-      navigator.clipboard.writeText(txt).then(()=>{ /* ok */ }).catch(()=>{ alert('Copy failed'); });
+      navigator.clipboard.writeText(txt).catch(()=>{ alert('Copy failed'); });
     });
-    document.getElementById('openTranslations').addEventListener('click', ()=>{ alert('Translations are disabled in this build.'); });
     document.getElementById('resetBtn').addEventListener('click', ()=>{
-      decks=makeDefaultDecks(); 
-      translations={}; 
-      localStorage.removeItem(STORAGE_KEY);
-      render(); 
+      decks=makeDefaultDecks();
+      if(USE_STORAGE){ localStorage.removeItem(STORAGE_KEY); }
+      render();
       outEl.textContent='Reset complete.';
     });
 
-    document.addEventListener('DOMContentLoaded', ()=>{ load(); render(); });
+    // ---------- Init (robust for GitHub Pages) ----------
+    (function init(){
+      if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', render);
+      else render();
+    })();
   </script>
 </body>
 </html>
+
